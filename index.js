@@ -17,9 +17,8 @@ app.use(bodyParser.json());
 const clientsPath = path.join(__dirname, "data", "clients.json");
 const clients = JSON.parse(fs.readFileSync(clientsPath, "utf-8"));
 
-// Optional: simple signature check (disabled by default)
+// (اختياري) التحقق من التوقيع — معطّل افتراضيًا
 function verifyRetellSignature(req) {
-  // If you enable signatures, compute HMAC with your secret and compare to header
   // const sig = req.headers["x-retell-signature"];
   // const hmac = crypto.createHmac("sha256", process.env.RETELL_WEBHOOK_SECRET || "dev-secret");
   // hmac.update(JSON.stringify(req.body));
@@ -29,7 +28,11 @@ function verifyRetellSignature(req) {
 }
 
 app.get("/", (req, res) => {
-  res.json({ ok: true, service: "NFSC Mock API", endpoints: ["/retell/functions/get_portfolio_status"] });
+  res.json({
+    ok: true,
+    service: "NFSC Mock API",
+    endpoints: ["/retell/functions/get_portfolio_status"],
+  });
 });
 
 // Retell tool function endpoint
@@ -38,21 +41,26 @@ app.post("/retell/functions/get_portfolio_status", (req, res) => {
     return res.status(401).json({ error: "unauthorized" });
   }
 
+  // Retell convention: { name, parameters: { ... } }
   const payload = req.body || {};
-  // Retell function calling convention: { name, parameters: { ... } }
-  const name = payload.name || "get_portfolio_status";
   const params = payload.parameters || {};
   const fullName = (params.name || "").toString().trim();
   const nationalId = (params.national_id || "").toString().trim();
 
+  // ✅ دي كانت سبب الخطأ عندك: لازم صياغة JS
   if (!fullName || !nationalId) {
-      return res.status(400).json({ error: "name and national_id are required in parameters" });
+    return res
+      .status(400)
+      .json({ error: "name and national_id are required in parameters" });
+  }
 
-  const hit = clients.find(c => c.name.trim() === fullName && c.national_id === nationalId);
+  const hit = clients.find(
+    (c) => c.name.trim() === fullName && c.national_id === nationalId
+  );
 
   if (!hit) {
     return res.json({
-      result: { found: false, message: "لا توجد محفظة مطابقة للاسم/الهوية." }
+      result: { found: false, message: "لا توجد محفظة مطابقة للاسم/الهوية." },
     });
   }
 
@@ -61,8 +69,8 @@ app.post("/retell/functions/get_portfolio_status", (req, res) => {
       found: true,
       name: hit.name,
       national_id: hit.national_id,
-      portfolio_status: hit.status
-    }
+      portfolio_status: hit.status,
+    },
   });
 });
 
