@@ -1,3 +1,4 @@
+// index.js (Node 18+, ESM)
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
@@ -13,15 +14,16 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Load sample clients
+// 🗂️ تحميل بيانات العملاء (Mock)
 const clientsPath = path.join(__dirname, "data", "clients.json");
 const clients = JSON.parse(fs.readFileSync(clientsPath, "utf-8"));
 
 // (اختياري) التحقق من التوقيع — معطّل افتراضيًا
 function verifyRetellSignature(req) {
+  // مثال إن حبيت تفعل توقيع HMAC:
   // const sig = req.headers["x-retell-signature"];
   // const hmac = crypto.createHmac("sha256", process.env.RETELL_WEBHOOK_SECRET || "dev-secret");
-  // hmac.update(JSON.stringify(req.body));
+  // hmac.update(JSON.stringify(req.body || {}));
   // const digest = "sha256=" + hmac.digest("hex");
   // return sig === digest;
   return true;
@@ -35,28 +37,29 @@ app.get("/", (req, res) => {
   });
 });
 
-// Retell tool function endpoint
+/**
+ * ✅ GET: /retell/functions/get_portfolio_status?name=...&national_id=...
+ * مفيد للاختبار السريع — خليك واخد بالك إن GET بيحط PII في URL/Logs
+ */
 app.get("/retell/functions/get_portfolio_status", (req, res) => {
   if (!verifyRetellSignature(req)) {
     return res.status(401).json({ error: "unauthorized" });
   }
 
-  // Retell convention: { name, parameters: { ... } }
-  const payload = req.body || {};
-  const params = payload.parameters || {};
-  const fullName = (params.name || "").toString().trim();
-  const nationalId = (params.national_id || "").toString().trim();
+  const fullName = (req.query.name || "").toString().trim();
+  const nationalId = (req.query.national_id || "").toString().trim();
 
-  // ✅ دي كانت سبب الخطأ عندك: لازم صياغة JS
   if (!fullName || !nationalId) {
-    return res
-      .status(400)
-      .json({ error: "name and national_id are required in parameters" });
+    return res.status(400).json({
+      error: "name and national_id are required as query params",
+    });
   }
 
   const hit = clients.find(
     (c) => c.name.trim() === fullName && c.national_id === nationalId
   );
+
+  res.set("Cache-Control", "no-store");
 
   if (!hit) {
     return res.json({
@@ -74,5 +77,57 @@ app.get("/retell/functions/get_portfolio_status", (req, res) => {
   });
 });
 
+/**
+ * ✅ POST: /retell/functions/get_portfolio_status
+ * Body (Retell convention):
+ * {
+ *   "name":"get_portfolio_status",
+ *   "parameters": { "name":"...", "national_id":"..." }
+ * }
+ */
+app.post("/retell/functions/get_portfolio_status", (req, res) => {
+  if (!verifyRetellSignature(req)) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+
+  const payload = req.body || {};
+  const params = payload.parameters || {};
+  const fullName = (params.name || "").toString().trim();
+  const nationalId = (params.national_id || "").toString().trim();
+
+  if (!fullName || !nationalId) {
+    return res.status(400).json({
+      error: "name and national_id are required in parameters",
+    });
+  }
+
+  const hit = clients.find(
+    (c) => c.name.trim() === fullName && c.national_id === nationalId
+  );
+
+  res.set("Cache-Control", "no-store");
+
+  if (!hit) {
+    return res.json({
+      result: { found: false, message: "لا توجد محفظة مطابقة للاسم/الهوية." },
+    });
+  }
+
+  return res.json({
+    result: {
+      found: true,
+      name: hit.name,
+      national_id: hit.national_id,
+      portfolio_status: hit.status,
+    },
+  });
+});
+
+// 🔌 تشغيل محليًا فقط (Vercel هتستخدم الـexport default app)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`NFSC Mock API listening on port ${PORT}`));
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`NFSC Mock API listening on port ${PORT}`));
+}
+
+// لتشغيله كـ Serverless على Vercel
+export default app;
