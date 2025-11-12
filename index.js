@@ -77,52 +77,6 @@ app.get("/retell/functions/get_portfolio_status", (req, res) => {
   });
 });
 
-/**
- * ✅ POST: /retell/functions/get_portfolio_status
- * Body (Retell convention):
- * {
- *   "name":"get_portfolio_status",
- *   "parameters": { "name":"...", "national_id":"..." }
- * }
- */
-app.post("/retell/functions/get_portfolio_status", (req, res) => {
-  if (!verifyRetellSignature(req)) {
-    return res.status(401).json({ error: "unauthorized" });
-  }
-
-  const payload = req.body || {};
-  const params = payload.parameters || {};
-  const fullName = (params.name || "").toString().trim();
-  const nationalId = (params.national_id || "").toString().trim();
-
-  if (!fullName || !nationalId) {
-    return res.status(400).json({
-      error: "name and national_id are required in parameters",
-    });
-  }
-
-  const hit = clients.find(
-    (c) => c.name.trim() === fullName && c.national_id === nationalId
-  );
-
-  res.set("Cache-Control", "no-store");
-
-  if (!hit) {
-    return res.json({
-      result: { found: false, message: "لا توجد محفظة مطابقة للاسم/الهوية." },
-    });
-  }
-
-  return res.json({
-    result: {
-      found: true,
-      name: hit.name,
-      national_id: hit.national_id,
-      portfolio_status: hit.status,
-    },
-  });
-});
-
 // 🔌 تشغيل محليًا فقط (Vercel هتستخدم الـexport default app)
 const PORT = process.env.PORT || 3000;
 if (!process.env.VERCEL) {
