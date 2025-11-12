@@ -36,7 +36,7 @@ app.get("/", (req, res) => {
 });
 
 // Retell tool function endpoint
-app.post("/retell/functions/get_portfolio_status", (req, res) => {
+app.get("/retell/functions/get_portfolio_status", (req, res) => {
   if (!verifyRetellSignature(req)) {
     return res.status(401).json({ error: "unauthorized" });
   }
