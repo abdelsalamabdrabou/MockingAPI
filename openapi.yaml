@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: NFSC Mock API
+  version: 1.0.0
+  description: Mock function for Retell AI to get portfolio status by name and national ID.
+paths:
+  /retell/functions/get_portfolio_status:
+    post:
+      summary: Lookup portfolio status
+      description: |
+        Retell AI tool/function endpoint. Expects `parameters` with `name` and `national_id`. Returns `result` object.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: get_portfolio_status
+                parameters:
+                  type: object
+                  required: [name, national_id]
+                  properties:
+                    name:
+                      type: string
+                      description: Full Arabic name
+                      example: "نورة خالد الشمري"
+                    national_id:
+                      type: string
+                      description: Saudi National ID (10 digits)
+                      example: "1009081082"
+      responses:
+        "200":
+          description: Successful lookup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      found:
+                        type: boolean
+                      name:
+                        type: string
+                        nullable: true
+                      national_id:
+                        type: string
+                        nullable: true
+                      portfolio_status:
+                        type: string
+                        nullable: true
+                    example:
+                      result:
+                        found: true
+                        name: "نورة خالد الشمري"
+                        national_id: "1009081082"
+                        portfolio_status: "سارية"
+        "400":
+          description: Missing parameters
+        "401":
+          description: Unauthorized
